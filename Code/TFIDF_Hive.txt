@@ -1,0 +1,138 @@
+# # 4. Using Mapreduce/Pig/Hive calculate the per-user TF-IDF (just submit the top 10 terms for each of the top 10 users from Query 3.II)
+#
+# ## Step 1: Use hive to create table top_10users.
+
+# hive> CREATE TABLE top_10users
+#
+#     > ROW FORMAT DELIMITED
+#
+#     > FIELDS TERMINATED BY ',' AS
+#
+#     > SELECT OwnerUserId, OwnerDisplayName, SUM(Score) AS total_score
+#
+#     > FROM cleaningdata
+#
+#     > GROUP BY OwnerUserId,OwnerDisplayName
+#
+#     > ORDER BY total_score DESC LIMIT 10;
+
+# ## Step 2: Use hive to create table top_10posts to store all the top 10 users' posts.
+
+# hive> CREATE TABLE top_10posts AS
+#
+#     > SELECT OwnerUserId, Body, Title, Tags
+#
+#     > FROM cleaningdata
+#
+#     > WHERE OwnerUserId in (SELECT OwnerUserId FROM top_10users)
+#
+#     > GROUP BY OwnerUserId, Body, Title, Tags;
+
+
+# hive> INSERT OVERWRITE DIRECTORY '/user/hdfs/Top_10posts'
+#
+#     > ROW FORMAT DELIMITED
+#
+#     > FIELDS TERMINATED BY ','
+#
+#     > SELECT *
+#
+#     > FROM top_10posts;
+
+
+# qinyan_chen7@cluster-edd6-m:~$ hadoop fs -ls /user/hdfs/Top_10posts/
+#
+# qinyan_chen7@cluster-edd6-m:~$ hadoop fs -get /user/hdfs/Top_10posts localfile
+#
+# qinyan_chen7@cluster-edd6-m:~$ ls /home/qinyan_chen7/localfile/Top_10posts
+#
+# qinyan_chen7@cluster-edd6-m:~$ hadoop fs -put cleaned_posts.txt /user/hdfs
+
+
+
+
+# ## Step 3: Use Hive to calculate TFIDF
+
+# hive> create external table if not exists CleanedPosts(OwnerUserId int, Posts string)
+#
+#     > ROW FORMAT DELIMITED FIELDS TERMINATED BY ',';
+#
+# hive> load data inpath 'hdfs://cluster-edd6-m/user/hdfs/cleaned_posts.txt' into table CleanedPosts;
+#
+# hive> select * from CleanedPosts;
+
+# hive> create table TF_IDF(Id int, Terms string, Doc int, Words_in_doc int, N float, TF float, IDF float, TFIDF float);
+
+# hive> Insert into TF_IDF
+#     > select OwnerUserId,Posts,total_doc
+#     > ,count(*)over(partition by Posts) as words_in_doc
+#     > ,n
+#     > ,tf
+#     > ,log(total_doc / (count(*)over(partition by Posts) +1)) idf
+#     > ,tf * log(total_doc / (count(*)over(partition by Posts) +1)) as tfidf
+#     > from(
+#     > select a.OwnerUserId,a.Posts
+#     > ,count(*) n
+#     > ,count(*)  /(max(count(*)) over(partition by OwnerUserId)) as tf
+#     > ,dense_rank() over (order by OwnerUserId) + dense_rank() over (order by OwnerUserId  desc) - 1 as total_doc
+#     > from
+#     > (select OwnerUserId,Posts
+#     > from (select OwnerUserId,Posts1
+#     > from CleanedPosts LATERAL VIEW explode(split(Posts,' ')) a as Posts1) b
+#     > LATERAL VIEW explode(split(Posts1,' ')) a as Posts
+#     > where Posts not in (' ')
+#     > )a
+#     > group by OwnerUserId,Posts
+#     > )a;
+
+# hive> select distinct id from TF_IDF;
+
+# hive> SELECT Id, Terms, TFIDF
+#     > FROM TF_IDF
+#     > WHERE Id = 4883
+#     > ORDER BY TFIDF DESC LIMIT 10;
+
+# hive> SELECT Id, Terms, TFIDF
+#     > FROM TF_IDF
+#     > WHERE Id = 6068
+#     > ORDER BY TFIDF DESC LIMIT 10;
+
+# hive> SELECT Id, Terms, TFIDF
+#     > FROM TF_IDF
+#     > WHERE Id = 9951
+#     > ORDER BY TFIDF DESC LIMIT 10;
+
+# hive> SELECT Id, Terms, TFIDF
+#     > FROM TF_IDF
+#     > WHERE Id = 49153
+#     > ORDER BY TFIDF DESC LIMIT 10;
+
+# hive> SELECT Id, Terms, TFIDF
+#     > FROM TF_IDF
+#     > WHERE Id = 51816
+#     > ORDER BY TFIDF DESC LIMIT 10;
+
+# hive> SELECT Id, Terms, TFIDF
+#     > FROM TF_IDF
+#     > WHERE Id = 63051
+#     > ORDER BY TFIDF DESC LIMIT 10;
+
+# hive> SELECT Id, Terms, TFIDF
+#     > FROM TF_IDF
+#     > WHERE Id = 87234
+#     > ORDER BY TFIDF DESC LIMIT 10;
+
+# hive> SELECT Id, Terms, TFIDF
+#     > FROM TF_IDF
+#     > WHERE Id = 89904
+#     > ORDER BY TFIDF DESC LIMIT 10;
+
+# hive> SELECT Id, Terms, TFIDF
+#     > FROM TF_IDF
+#     > WHERE Id = 95592
+#     > ORDER BY TFIDF DESC LIMIT 10;
+
+# hive> SELECT Id, Terms, TFIDF
+#     > FROM TF_IDF
+#     > WHERE Id = 179736
+#     > ORDER BY TFIDF DESC LIMIT 10;
